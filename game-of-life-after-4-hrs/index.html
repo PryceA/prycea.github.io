@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colorful Game of Life</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            background-color: #f5f5f5;
+        }
+        canvas {
+            border: 1px solid black;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #3f51b5;
+            color: white;
+            padding: 10px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .mdl-button {
+            background-color: #ff4081;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <p>Frame: <span id="frameCounter">0</span></p>
+        <div>
+            <label for="foodSourceColor">Food Source Color:</label>
+            <input type="color" id="foodSourceColor" name="foodSourceColor" value="#00ff00">
+            <button id="addFoodSourceBtn" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">Add Food Source</button>
+        </div>
+        <div>
+            <button id="addOrganismBtn" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">Add Organism</button>
+            <span id="currentAction">Adding: Organism</span>
+        </div>
+    </div>
+    <div class="stats">
+        <div>
+            <h4>Organism Stats</h4>
+            <canvas id="organisms-stats" width="300" height="200"></canvas>
+        </div>
+        <div>
+            <h4>Food Stats</h4>
+            <canvas id="food-stats" width="300" height="200"></canvas>
+        </div>
+    </div>
+    <canvas id="gameCanvas" width="1600" height="800"></canvas>
+    <script src="organismAndFoodSource.js"></script>
+    <script src="stats.js"></script>
+    <script src="gameLoop.js"></script>
+</body>
+</html>
