@@ -2,160 +2,170 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 const organismSize = 5;
-const organismsCount = 100;
+const startingOrganismsCount = 200;
+const startingFoodSourcesCount = 100
 const organisms = [];
 const scanRadius = 200;
-const movementCost = .000001;
-const newOrganismFrequency = 0.01; // Set the desired frequency (e.g., 0.01 for 1% chance per frame)
+const movementCost = .001;
+const newOrganismFrequency = 0.1; // Set the desired frequency (e.g., 0.01 for 1% chance per frame)
 const newFoodSourceFrequency = 0.1; // Set the desired frequency (e.g., 0.005 for 0.5% chance per frame)
-const reproductionEnergyThreshold = 30;
-const sameSpeciesColorDistance = 100; // The "color distance" that is considered the same species
-const sameFoodColorDistance = 200;
+const reproductionEnergyThreshold = 1000;
+const maxStartingEnergy = 100;
+const sameSpeciesColorDistance = 50; // The "color distance" that is considered the same species
+const sameFoodColorDistance = 150;
+const eatRate = 0.01; // Adjust this value to control the speed of size transfer
+
 
 class Organism {
     constructor(x, y, color) {
         this.x = x;
         this.y = y;
-        this.color = {...color};
-        this.size = Math.random() * (10 - 1) + 1;
-        this.speed = 1; // You can set a constant value or use another attribute for speed
+
+        // Calculate the average of the input color components
+        const inputColorAverage = (color.r + color.g + color.b) / 3;
+
+        // Calculate the normalization factor to achieve an average of 127.5
+        const normalizationFactor = 127.5 / inputColorAverage;
+
+        // Normalize the input color
+        this.color = {
+            r: Math.min(255, Math.round(color.r * normalizationFactor)),
+            g: Math.min(255, Math.round(color.g * normalizationFactor)),
+            b: Math.min(255, Math.round(color.b * normalizationFactor)),
+        };
+
+        this.energy = Math.random() * (maxStartingEnergy - 1) + 1;
+        this.radius = Math.sqrt(this.energy / Math.PI); // Update the radius based on energy
+        this.speed = this.color.b / 255 + 1; // You can set a constant value or use another attribute for speed
         this.directionVector = { x: 0, y: 0 };
     }
 
     draw() {
-        this.size = this.size; // Update the size based on energy
+        this.radius = Math.sqrt(this.energy / Math.PI); // Update the radius based on energy
 
         ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 255)`;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, 2 * Math.PI);
+        ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
         ctx.closePath();
         ctx.fill();
     }
 
-    move() {
-        let directionVectors = [];
 
-        // Interaction with other organisms
-        for (const otherOrganism of organisms) {
-            if (otherOrganism === this) continue;
+  move() {
+    let directionVectors = [];
 
-            const colorDistance = Math.sqrt(
-                Math.pow(this.color.r - otherOrganism.color.r, 2) +
-                Math.pow(this.color.g - otherOrganism.color.g, 2) +
-                Math.pow(this.color.b - otherOrganism.color.b, 2)
-            );
+    // Interaction with other organisms
+    for (const otherOrganism of organisms) {
+        if (otherOrganism === this) continue;
 
-            const dx = otherOrganism.x - this.x;
-            const dy = otherOrganism.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+        const colorDistance = Math.sqrt(
+            Math.pow(this.color.r - otherOrganism.color.r, 2) +
+            Math.pow(this.color.g - otherOrganism.color.g, 2) +
+            Math.pow(this.color.b - otherOrganism.color.b, 2)
+        );
 
-            // If same color, then only consider for reproduction
-            if (colorDistance <= sameSpeciesColorDistance) {
-                if (distance < scanRadius && this.size > reproductionEnergyThreshold && otherOrganism.size > reproductionEnergyThreshold) {
-                    const vectorMagnitude = this.color.b / 255;
-                    const normalizedVector = {
-                        x: (dx/distance) * vectorMagnitude / distance,
-                        y: (dy/distance) * vectorMagnitude / distance,
-                    };
-
-                    directionVectors.push(normalizedVector);
-                } else {
-                    continue;
-                }
-            }
-            
-            if (distance < scanRadius) {
-                let vectorMagnitude;
-                if (otherOrganism.size > this.size) {
-                    vectorMagnitude = -(this.color.r / 255); // Move away from larger organisms
-                } else {
-                    vectorMagnitude = this.color.r / 255; // Move toward smaller organisms
-                }
-
-                const normalizedVector = {
-                    x: (dx/distance) * vectorMagnitude / distance,
-                    y: (dy/distance) * vectorMagnitude / distance,
-                };
-
-                directionVectors.push(normalizedVector);
-            }
-            
-
-        }
-
-        // Interaction with food sources
-        for (const foodSource of foodSources) {
-            const dx = foodSource.x - this.x;
-            const dy = foodSource.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance < scanRadius) {
-                const colorDistance = Math.sqrt(
-                    Math.pow(this.color.r - foodSource.colorPreference.r, 2) +
-                    Math.pow(this.color.g - foodSource.colorPreference.g, 2) +
-                    Math.pow(this.color.b - foodSource.colorPreference.b, 2)
-                );
-
-                // Calculate the food source element based on the color distance
-                const foodSourceElement = Math.max(0, (sameFoodColorDistance - colorDistance) / 255);
-                const vectorMagnitude = this.color.g / 255 * foodSourceElement;
-
-                const normalizedVector = {
-                    x: (dx/distance) * vectorMagnitude / distance,
-                    y: (dy/distance) * vectorMagnitude / distance,
-                };
-
-                directionVectors.push(normalizedVector);
-            }
-        }
+        const dx = otherOrganism.x - this.x;
+        const dy = otherOrganism.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy) - this.radius - otherOrganism.radius;
         
-        // Select the vector with the greatest magnitude
-        let maxMagnitude = 0;
-        let maxIndex = -1;
-        for (let i = 0; i < directionVectors.length; i++) {
-            const magnitude = Math.sqrt(
-                directionVectors[i].x * directionVectors[i].x +
-                directionVectors[i].y * directionVectors[i].y
-            );
+        if (distance < scanRadius) {
+            let vectorMagnitude;
 
-            if (magnitude > maxMagnitude) {
-                maxMagnitude = magnitude;
-                maxIndex = i;
-            }
-        }
-
-        if (maxIndex >= 0) {
-            const directionVector = directionVectors[maxIndex];
-
-            // Calculate the energy cost of the movement
-            const energyCost = Math.pow(this.size, 3) * movementCost; // Replace this.color.b with this.speed
-
-
-            // Move only if there's enough energy
-            if (this.size - energyCost >= 0) {
-                const newX = this.x + directionVector.x/maxMagnitude * this.speed;
-                const newY = this.y + directionVector.y/maxMagnitude * this.speed;
-
-                // Check if the new position is within the canvas bounds
-                if (newX >= 0 && newX <= canvas.width) {
-                    this.x = newX;
+            if (colorDistance <= sameSpeciesColorDistance) {
+                if (this.energy > reproductionEnergyThreshold && otherOrganism.energy > reproductionEnergyThreshold) {
+                    vectorMagnitude = this.color.b / 255; // Move toward organisms of the same color if the energy is at least reproductionEnergyThreshold
+                } else {
+                    vectorMagnitude = -(this.color.b / 255); // Move away from organisms of the same color if the energy is below reproductionEnergyThreshold
                 }
-                if (newY >= 0 && newY <= canvas.height) {
-                    this.y = newY;
-                }
-
-                this.size -= energyCost;
+            } else if (otherOrganism.energy > this.energy) {
+                vectorMagnitude = -(this.color.r / 255); // Move away from larger organisms
+            } else {
+                vectorMagnitude = this.color.r / 255; // Move toward smaller organisms
             }
 
-            this.checkForCollisions();
+            const normalizedVector = {
+                x: (dx/distance) * vectorMagnitude / distance,
+                y: (dy/distance) * vectorMagnitude / distance,
+            };
+
+            directionVectors.push(normalizedVector);
         }
     }
 
+    // Interaction with food sources
+    for (const foodSource of foodSources) {
+        const dx = foodSource.x - this.x;
+        const dy = foodSource.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
-    checkForCollisions() {
-        for (const otherOrganism of organisms) {
-           if (otherOrganism === this) continue;
+        if (distance < scanRadius) {
+            const colorDistance = Math.sqrt(
+                Math.pow(this.color.r - foodSource.colorPreference.r, 2) +
+                Math.pow(this.color.g - foodSource.colorPreference.g, 2) +
+                Math.pow(this.color.b - foodSource.colorPreference.b, 2)
+            );
 
+            // Calculate the food source element based on the color distance
+            const foodSourceElement = Math.max(0, (sameFoodColorDistance - colorDistance) / 255);
+            const vectorMagnitude = this.color.g / 255 * foodSourceElement;
+
+            const normalizedVector = {
+                x: (dx/distance) * vectorMagnitude / distance,
+                y: (dy/distance) * vectorMagnitude / distance,
+            };
+
+            directionVectors.push(normalizedVector);
+        }
+    }
+
+    // Select the vector with the greatest magnitude
+    let maxMagnitude = 0;
+    let maxIndex = -1;
+    for (let i = 0; i < directionVectors.length; i++) {
+        const magnitude = Math.sqrt(
+            directionVectors[i].x * directionVectors[i].x +
+            directionVectors[i].y * directionVectors[i].y
+        );
+
+        if (magnitude > maxMagnitude) {
+            maxMagnitude = magnitude;
+            maxIndex = i;
+        }
+    }
+    if (maxIndex >= 0) {
+        const directionVector = directionVectors[maxIndex];
+
+        // Calculate the energy cost of the movement
+        const energyCost = Math.pow(this.radius, 2) * Math.pow(this.speed, 3) * movementCost;
+
+        // Move only if there's enough energy
+        if (this.energy - energyCost >= 0) {
+            const newX = this.x + directionVector.x / maxMagnitude * this.speed;
+            const newY = this.y + directionVector.y / maxMagnitude * this.speed;
+
+            // Check if the new position is within the canvas bounds
+            if (newX >= 0 && newX <= canvas.width) {
+                this.x = newX;
+            }
+            if (newY >= 0 && newY <= canvas.height) {
+                this.y = newY;
+            }
+
+            this.energy -= energyCost;
+        }
+
+        this.checkForCollisions();
+    }
+}
+checkForCollisions() {
+    for (const otherOrganism of organisms) {
+        if (otherOrganism === this) continue;
+
+        const dx = otherOrganism.x - this.x;
+        const dy = otherOrganism.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy) - this.radius - otherOrganism.radius;
+
+        if (distance < 1) {
             const colorDistance = Math.sqrt(
                 Math.pow(this.color.r - otherOrganism.color.r, 2) +
                 Math.pow(this.color.g - otherOrganism.color.g, 2) +
@@ -163,87 +173,89 @@ class Organism {
             );
 
             if (colorDistance <= sameSpeciesColorDistance) {
-                if (this.size > reproductionEnergyThreshold && otherOrganism.size > reproductionEnergyThreshold) {
+                if (this.energy > reproductionEnergyThreshold && otherOrganism.energy > reproductionEnergyThreshold) {
                     this.reproduce();
                     otherOrganism.reproduce();
                 }
                 continue;
-            }
-            
-            const dx = otherOrganism.x - this.x;
-            const dy = otherOrganism.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const minDistance = (this.size + otherOrganism.size) / 2 + 10; // +10 is just to help catch guys stuck on the side
-
-            if (distance < minDistance) {
-                if (this.size > otherOrganism.size) {
-                    this.size += otherOrganism.size; // Add the smaller organism's energy to the larger organism
-                    organisms.splice(organisms.indexOf(otherOrganism), 1);
+            } else {
+                if (this.energy > otherOrganism.energy) {
+                    const transferEnergy = Math.min(otherOrganism.energy, eatRate * this.energy);
+                    this.energy += transferEnergy; // Transfer energy from the smaller organism to the larger organism at the specified rate
+                    otherOrganism.energy -= transferEnergy;
+                    if (otherOrganism.energy <= 0) {
+                        organisms.splice(organisms.indexOf(otherOrganism), 1);
+                    }
                 } else {
-                    otherOrganism.size += this.size; // Add the smaller organism's energy to the larger organism
-                    organisms.splice(organisms.indexOf(this), 1);
+                    const transferEnergy = Math.min(this.energy, eatRate * otherOrganism.energy);
+                    otherOrganism.energy += transferEnergy; // Transfer energy from the smaller organism to the larger organism at the specified rate
+                    this.energy -= transferEnergy;
+                    if (this.energy <= 0) {
+                        organisms.splice(organisms.indexOf(this), 1);
+                    }
                 }
             }
         }
     }
+}
 
-    reproduce() {
-        if (this.size > reproductionEnergyThreshold) {
-            console.log(`Reproducing. Color: ${this.color.r}, ${this.color.g}, ${this.color.b}`);
-            const offspringSize = this.size * 0.5;
-            const offspringColor = {
-                r: Math.floor(this.color.r + (Math.random() * 20 - 10)),
-                g: Math.floor(this.color.g + (Math.random() * 20 - 10)),
-                b: Math.floor(this.color.b + (Math.random() * 20 - 10)),
-            };
+reproduce() {
+    if (this.energy > reproductionEnergyThreshold) {
+        console.log(`Reproducing. Color: ${this.color.r}, ${this.color.g}, ${this.color.b}`);
+        const offspringEnergy = this.energy * 0.5;
+        const offspringColor = {
+            r: Math.floor(this.color.r + (Math.random() * 20 - 10)),
+            g: Math.floor(this.color.g + (Math.random() * 20 - 10)),
+            b: Math.floor(this.color.b + (Math.random() * 20 - 10)),
+        };
 
-            // Randomly choose an angle for the offspring's position
-            const angle = Math.random() * 2 * Math.PI;
-            const distanceFromParent = this.size + offspringSize;
+        // Randomly choose an angle for the offspring's position
+        const angle = Math.random() * 2 * Math.PI;
+        const distanceFromParent = this.radius + Math.sqrt(offspringEnergy / Math.PI);
 
-            const offspringX = this.x + distanceFromParent * Math.cos(angle);
-            const offspringY = this.y + distanceFromParent * Math.sin(angle);
+        const offspringX = this.x + distanceFromParent * Math.cos(angle);
+        const offspringY = this.y + distanceFromParent * Math.sin(angle);
 
-            const offspring = new Organism(offspringX, offspringY, offspringColor);
-            offspring.size = offspringSize;
-            organisms.push(offspring);
+        const offspring = new Organism(offspringX, offspringY, offspringColor);
+        offspring.energy = offspringEnergy;
+        organisms.push(offspring);
 
-            this.size -= offspringSize;
-        }
+        this.energy -= offspringEnergy;
     }
+}
+consumeFood() {
+    for (const foodSource of foodSources) {
+        const dx = foodSource.x - this.x;
+        const dy = foodSource.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const minDistance = (this.radius + 5) / 2;
 
-    consumeFood() {
-        for (const foodSource of foodSources) {
-            const dx = foodSource.x - this.x;
-            const dy = foodSource.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const minDistance = (this.size + 5) / 2;
+        if (distance < minDistance) {
+            const colorDistance = Math.sqrt(
+                Math.pow(this.color.r - foodSource.colorPreference.r, 2) +
+                Math.pow(this.color.g - foodSource.colorPreference.g, 2) +
+                Math.pow(this.color.b - foodSource.colorPreference.b, 2)
+            );
 
-            if (distance < minDistance) {
-                const colorDistance = Math.sqrt(
-                    Math.pow(this.color.r - foodSource.colorPreference.r, 2) +
-                    Math.pow(this.color.g - foodSource.colorPreference.g, 2) +
-                    Math.pow(this.color.b - foodSource.colorPreference.b, 2)
-                );
+            const energyGain = Math.max(0, (sameFoodColorDistance - colorDistance) / 255 * foodSource.energy);
+            this.energy += energyGain;
+            foodSource.energy -= energyGain;
 
-                const energyGain = Math.max(0, (sameFoodColorDistance - colorDistance) / 255 * foodSource.energy);
-                this.size += energyGain;
-                foodSource.energy -= energyGain;
-
-                if (foodSource.energy <= 1) {
-                    console.log(`Food source depleted. Color: ${this.color.r}, ${this.color.g}, ${this.color.b}`);
-                    foodSources.splice(foodSources.indexOf(foodSource), 1);
-                }
+            if (foodSource.energy <= 1) {
+                console.log(`Food source depleted. Color: ${this.color.r}, ${this.color.g}, ${this.color.b}`);
+                foodSources.splice(foodSources.indexOf(foodSource), 1);
             }
         }
     }
+}
+
 
 
 
 }
 
 function createOrganisms() {
-    for (let i = 0; i < organismsCount; i++) {
+    for (let i = 0; i < startingOrganismsCount; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
         const color = {
@@ -260,7 +272,7 @@ class FoodSource {
         this.x = x;
         this.y = y;
         this.colorPreference = colorPreference;
-        this.energy = 10;
+        this.energy = 1000;
     }
 
     draw() {
@@ -275,7 +287,7 @@ class FoodSource {
 const foodSources = [];
 
 function createFoodSources() {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < startingFoodSourcesCount; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
         const colorPreference = {
@@ -368,5 +380,4 @@ addOrganismBtn.addEventListener('click', switchToAddOrganismMode);
 
 createOrganisms();
 createFoodSources();
-
 

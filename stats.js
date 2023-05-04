@@ -14,61 +14,62 @@ function drawLine(ctx, startX, startY, endX, endY, color) {
     ctx.stroke();
 }
 
-function drawGraph(ctx, data, color) {
-    const stepX = ctx.canvas.width / (data.length - 1);
+function drawGraph(ctx, data, color, yMin, yMax, padding) {
+    const stepX = (ctx.canvas.width - 2 * padding) / (data.length - 1);
+    const stepY = (ctx.canvas.height - 2 * padding) / (yMax - yMin);
 
     for (let i = 0; i < data.length - 1; i++) {
-        const startX = i * stepX;
-        const startY = ctx.canvas.height - data[i];
-        const endX = (i + 1) * stepX;
-        const endY = ctx.canvas.height - data[i + 1];
+        const startX = padding + i * stepX;
+        const startY = ctx.canvas.height - padding - (data[i] - yMin) * stepY;
+        const endX = padding + (i + 1) * stepX;
+        const endY = ctx.canvas.height - padding - (data[i + 1] - yMin) * stepY;
 
         drawLine(ctx, startX, startY, endX, endY, color);
     }
 }
 
-function drawLineGraph(ctx, dataPoints) {
-    const dataLength = dataPoints.length;
-    const canvasWidth = ctx.canvas.width;
-    const canvasHeight = ctx.canvas.height;
-    const padding = 10;
-    const plotWidth = canvasWidth - 2 * padding;
-    const plotHeight = canvasHeight - 2 * padding;
+function drawYAxisLabels(ctx, yMin, yMax, padding, numTicks) {
+    const stepY = (ctx.canvas.height - 2 * padding) / (yMax - yMin);
+    const tickStep = (yMax - yMin) / numTicks;
+    ctx.fillStyle = "black";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
 
-    // Get the maximum value in the dataPoints array
-    const maxValue = Math.max(...dataPoints);
-
-    // Calculate the horizontal and vertical scale factors
-    const xScale = plotWidth / (dataLength - 1);
-    const yScale = plotHeight / maxValue;
-
-    // Move to the first data point
-    ctx.moveTo(padding, canvasHeight - padding - dataPoints[0] * yScale);
-
-    // Draw lines to each subsequent data point
-    for (let i = 1; i < dataLength; i++) {
-        const xPos = padding + i * xScale;
-        const yPos = canvasHeight - padding - dataPoints[i] * yScale;
-        ctx.lineTo(xPos, yPos);
+    for (let i = 0; i <= numTicks; i++) {
+        const value = yMin + i * tickStep;
+        const xPos = padding - 5;
+        const yPos = ctx.canvas.height - padding - (value - yMin) * stepY;
+        ctx.fillText(value.toFixed(1), xPos, yPos);
     }
 }
 
 
-
 function drawStats(canvas, dataRed, dataGreen, dataBlue) {
     const ctx = canvas.getContext("2d");
+    const padding = 40; // Increase the padding value if numbers are cutoff
 
     // Clear the canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw the axes
-    drawLine(ctx, 0, 0, 0, canvas.height, "black");
-    drawLine(ctx, 0, canvas.height, canvas.width, canvas.height, "black");
+    drawLine(ctx, padding, padding, padding, canvas.height - padding, "black");
+    drawLine(ctx, padding, canvas.height - padding, canvas.width - padding, canvas.height - padding, "black");
+
+    // Calculate yMin and yMax values
+    const allData = [...dataRed, ...dataGreen, ...dataBlue];
+    const minValue = Math.min(...allData);
+    const maxValue = Math.max(...allData);
+    const yMin = minValue - 0.1 * (maxValue - minValue);
+    const yMax = maxValue + 0.1 * (maxValue - minValue);
 
     // Draw the lines for each dominant color (red, green, blue)
-    drawGraph(ctx, dataRed, "red");
-    drawGraph(ctx, dataGreen, "green");
-    drawGraph(ctx, dataBlue, "blue");
+    drawGraph(ctx, dataRed, "red", yMin, yMax, padding);
+    drawGraph(ctx, dataGreen, "green", yMin, yMax, padding);
+    drawGraph(ctx, dataBlue, "blue", yMin, yMax, padding);
+
+    // Draw y-axis labels
+    drawYAxisLabels(ctx, yMin, yMax, padding, 5); // Pass 5 as the desired number of ticks
 
     // Request the next frame
     requestAnimationFrame(() => drawStats(canvas, dataRed, dataGreen, dataBlue));
